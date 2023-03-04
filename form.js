@@ -234,6 +234,358 @@ input:invalid {
 input:focus:invalid {
   box-shadow: none;
 }
+
+See Validation-related attributes for a complete list of attributes that can be used to constrain input values and the input types that support them.
+
+Validating forms using JavaScript
+You must use JavaScript if you want to take control over the look and feel of native error messages. In this section we will look at the different ways to do this.
+
+** The Constraint Validation API **
+The Constraint Validation API consists of a set of methods and properties available on the following form element DOM interfaces:
+
+1. HTMLButtonElement (represents a <button> element)
+2. HTMLFieldSetElement (represents a <fieldset> element)
+3. HTMLInputElement (represents an <input> element)
+4. HTMLOutputElement (represents an <output> element)
+5. HTMLSelectElement (represents a <select> element)
+6. HTMLTextAreaElement (represents a <textarea> element)
+The Constraint Validation API makes the following properties available on the above elements.
+
+A. validationMessage: Returns a localized message describing the validation constraints that the control doesn't satisfy (if any). If the control is not a candidate for constraint validation (willValidate is false) or the element's value satisfies its constraints (is valid), this will return an empty string.
+B. validity: Returns a ValidityState object that contains several properties describing the validity state of the element. You can find full details of all the available properties in the ValidityState reference page; below is listed a few of the more common ones:
+
+1. patternMismatch: Returns true if the value does not match the specified pattern, and false if it does match. If true, the element matches the :invalid CSS pseudo-class.
+2. tooLong: Returns true if the value is longer than the maximum length specified by the maxlength attribute, or false if it is shorter than or equal to the maximum. If true, the element matches the :invalid CSS pseudo-class.
+3. tooShort: Returns true if the value is shorter than the minimum length specified by the minlength attribute, or false if it is greater than or equal to the minimum. If true, the element matches the :invalid CSS pseudo-class.
+4. rangeOverflow: Returns true if the value is greater than the maximum specified by the max attribute, or false if it is less than or equal to the maximum. If true, the element matches the :invalid and :out-of-range CSS pseudo-classes.
+5. rangeUnderflow: Returns true if the value is less than the minimum specified by the min attribute, or false if it is greater than or equal to the minimum. If true, the element matches the :invalid and :out-of-range CSS pseudo-classes.
+6. typeMismatch: Returns true if the value is not in the required syntax (when type is email or url), or false if the syntax is correct. If true, the element matches the :invalid CSS pseudo-class.
+7. valid: Returns true if the element meets all its validation constraints, and is therefore considered to be valid, or false if it fails any constraint. If true, the element matches the :valid CSS pseudo-class; the :invalid CSS pseudo-class otherwise.
+8. valueMissing: Returns true if the element has a required attribute, but no value, or false otherwise. If true, the element matches the :invalid CSS pseudo-class.
+
+C. willValidate: Returns true if the element will be validated when the form is submitted; false otherwise.
+
+** The Constraint Validation API also makes the following methods available on the above elements and the form element.
+
+1. checkValidity(): Returns true if the element's value has no validity problems; false otherwise. If the element is invalid, this method also fires an invalid event on the element.
+2. reportValidity(): Reports invalid field(s) using events. This method is useful in combination with preventDefault() in an onSubmit event handler.
+3. setCustomValidity(message): Adds a custom error message to the element; if you set a custom error message, the element is considered to be invalid, and the specified error is displayed. This lets you use JavaScript code to establish a validation failure other than those offered by the standard HTML validation constraints. The message is shown to the user when reporting the problem.
+
+Implementing a customized error message
+As you saw in the HTML validation constraint examples earlier, each time a user tries to submit an invalid form, the browser displays an error message. The way this message is displayed depends on the browser.
+
+These automated messages have two drawbacks:
+
+1. There is no standard way to change their look and feel with CSS.
+2. They depend on the browser locale, which means that you can have a page in one language but an error message displayed in another language, as seen in the following Firefox screenshot.
+
+Customizing these error messages is one of the most common use cases of the Constraint Validation API. Let's work through a simple example of how to do this.
+
+We'll start with some simple HTML (feel free to put this in a blank HTML file; use a fresh copy of fruit-start.html as a basis, if you like):
+
+<form>
+  <label for="mail">
+    I would like you to provide me with an email address:
+  </label>
+  <input type="email" id="mail" name="mail" />
+  <button>Submit</button>
+</form>
+
+And add the following JavaScript to the page:
+
+const email = document.getElementById("mail");
+
+email.addEventListener("input", (event) => {
+  if (email.validity.typeMismatch) {
+    email.setCustomValidity("I am expecting an email address!");
+  } else {
+    email.setCustomValidity("");
+  }
+});
+
+Here we store a reference to the email input, then add an event listener to it that runs the contained code each time the value inside the input is changed.
+
+Inside the contained code, we check whether the email input's validity.typeMismatch property returns true, meaning that the contained value doesn't match the pattern for a well-formed email address. If so, we call the setCustomValidity() method with a custom message. This renders the input invalid, so that when you try to submit the form, submission fails and the custom error message is displayed.
+
+If the validity.typeMismatch property returns false, we call the setCustomValidity() method with an empty string. This renders the input valid, so the form will submit.
+
+A more detailed example
+Now that we've seen a really simple example, let's see how we can use this API to build some slightly more complex custom validation.
+
+First, the HTML. Again, feel free to build this along with us:
+
+<form novalidate>
+  <p>
+    <label for="mail">
+      <span>Please enter an email address:</span>
+      <input type="email" id="mail" name="mail" required minlength="8" />
+      <span class="error" aria-live="polite"></span>
+    </label>
+  </p>
+  <button>Submit</button>
+</form>
+
+This simple form uses the novalidate attribute to turn off the browser's automatic validation; this lets our script take control over validation. However, this doesn't disable support for the constraint validation API nor the application of CSS pseudo-classes like :valid, etc. That means that even though the browser doesn't automatically check the validity of the form before sending its data, you can still do it yourself and style the form accordingly.
+
+Our input to validate is an <input type="email">, which is required, and has a minlength of 8 characters. Let's check these using our own code, and show a custom error message for each one.
+
+We are aiming to show the error messages inside a <span> element. The aria-live attribute is set on that <span> to make sure that our custom error message will be presented to everyone, including it being read out to screen reader users.
+
+Note: A key point here is that setting the novalidate attribute on the form is what stops the form from showing its own error message bubbles, and allows us to instead display the custom error messages in the DOM in some manner of our own choosing.
+
+Now onto some basic CSS to improve the look of the form slightly, and provide some visual feedback when the input data is invalid:
+
+body {
+  font: 1em sans-serif;
+  width: 200px;
+  padding: 0;
+  margin: 0 auto;
+}
+
+p * {
+  display: block;
+}
+
+input[type="email"] {
+  appearance: none;
+
+  width: 100%;
+  border: 1px solid #333;
+  margin: 0;
+
+  font-family: inherit;
+  font-size: 90%;
+
+  box-sizing: border-box;
+}
+*This is our style for the invalid fields *
+input:invalid {
+  border-color: #900;
+  background-color: #fdd;
+}
+
+input:focus:invalid {
+  outline: none;
+}
+
+* This is the style of our error messages *
+.error {
+  width: 100%;
+  padding: 0;
+
+  font-size: 80%;
+  color: white;
+  background-color: #900;
+  border-radius: 0 0 5px 5px;
+
+  box-sizing: border-box;
+}
+
+.error.active {
+  padding: 0.3em;
+}
+
+Now let's look at the JavaScript that implements the custom error validation.
+
+// There are many ways to pick a DOM node; here we get the form itself and the email
+// input box, as well as the span element into which we will place the error message.
+const form = document.querySelector("form");
+const email = document.getElementById("mail");
+const emailError = document.querySelector("#mail + span.error");
+
+email.addEventListener("input", (event) => {
+  // Each time the user types something, we check if the
+  // form fields are valid.
+
+  if (email.validity.valid) {
+    // In case there is an error message visible, if the field
+    // is valid, we remove the error message.
+    emailError.textContent = ""; // Reset the content of the message
+    emailError.className = "error"; // Reset the visual state of the message
+  } else {
+    // If there is still an error, show the correct error
+    showError();
+  }
+});
+
+form.addEventListener("submit", (event) => {
+  // if the email field is valid, we let the form submit
+  if (!email.validity.valid) {
+    // If it isn't, we display an appropriate error message
+    showError();
+    // Then we prevent the form from being sent by canceling the event
+    event.preventDefault();
+  }
+});
+
+function showError() {
+  if (email.validity.valueMissing) {
+    // If the field is empty,
+    // display the following error message.
+    emailError.textContent = "You need to enter an email address.";
+  } else if (email.validity.typeMismatch) {
+    // If the field doesn't contain an email address,
+    // display the following error message.
+    emailError.textContent = "Entered value needs to be an email address.";
+  } else if (email.validity.tooShort) {
+    // If the data is too short,
+    // display the following error message.
+    emailError.textContent = `Email should be at least ${email.minLength} characters; you entered ${email.value.length}.`;
+  }
+
+  // Set the styling appropriately
+  emailError.className = "error active";
+}
+The comments explain things pretty well, but briefly:
+
+1. Every time we change the value of the input, we check to see if it contains valid data. If it has then we remove any error message being shown. If the data is not valid, we run showError() to show the appropriate error.
+2. Every time we try to submit the form, we again check to see if the data is valid. If so, we let the form submit. If not, we run showError() to show the appropriate error, and stop the form submitting with preventDefault().
+3. The showError() function uses various properties of the input's validity object to determine what the error is, and then displays an error message as appropriate.
+
+The constraint validation API gives you a powerful tool to handle form validation, letting you have enormous control over the user interface above and beyond what you can do with HTML and CSS alone.
+
+Validating forms without a built-in API
+In some cases, such as custom controls, you won't be able to or won't want to use the Constraint Validation API. You're still able to use JavaScript to validate your form, but you'll just have to write your own.
+
+To validate a form, ask yourself a few questions:
+
+What kind of validation should I perform?
+You need to determine how to validate your data: string operations, type conversion, regular expressions, and so on. It's up to you.
+
+What should I do if the form doesn't validate?
+This is clearly a UI matter. You have to decide how the form will behave. Does the form send the data anyway? Should you highlight the fields that are in error? Should you display error messages?
+
+How can I help the user to correct invalid data?
+In order to reduce the user's frustration, it's very important to provide as much helpful information as possible in order to guide them in correcting their inputs. You should offer up-front suggestions so they know what's expected, as well as clear error messages. If you want to dig into form validation UI requirements, here are some useful articles you should read:
+
+1. Help users enter the right data in forms
+2. Validating input
+3. How to Report Errors in Forms: 10 Design Guidelines
+
+An example that doesn't use the constraint validation API
+In order to illustrate this, the following is a simplified version of the previous example without the Constraint Validation API.
+
+The HTML is almost the same; we just removed the HTML validation features
+
+
+<form>
+  <p>
+    <label for="mail">
+      <span>Please enter an email address:</span>
+      <input type="text" id="mail" name="mail" />
+      <span class="error" aria-live="polite"></span>
+    </label>
+  </p>
+  <button>Submit</button>
+</form>
+
+Similarly, the CSS doesn't need to change very much; we've just turned the :invalid CSS pseudo-class into a real class and avoided using the attribute selector.
+
+body {
+  font: 1em sans-serif;
+  width: 200px;
+  padding: 0;
+  margin: 0 auto;
+}
+
+form {
+  max-width: 200px;
+}
+
+p * {
+  display: block;
+}
+
+input.mail {
+  appearance: none;
+  width: 100%;
+  border: 1px solid #333;
+  margin: 0;
+
+  font-family: inherit;
+  font-size: 90%;
+
+  box-sizing: border-box;
+}
+
+* This is our style for the invalid fields *
+input.invalid {
+  border-color: #900;
+  background-color: #fdd;
+}
+
+input:focus.invalid {
+  outline: none;
+}
+
+* This is the style of our error messages *
+.error {
+  width: 100%;
+  padding: 0;
+
+  font-size: 80%;
+  color: white;
+  background-color: #900;
+  border-radius: 0 0 5px 5px;
+  box-sizing: border-box;
+}
+
+.error.active {
+  padding: 0.3em;
+}
+
+The big changes are in the JavaScript code, which needs to do much more heavy lifting.
+
+const form = document.querySelector("form");
+const email = document.getElementById("mail");
+const error = email.nextElementSibling;
+
+// As per the HTML Specification
+const emailRegExp =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+
+// Now we can rebuild our validation constraint
+// Because we do not rely on CSS pseudo-class, we have to
+// explicitly set the valid/invalid class on our email field
+window.addEventListener("load", () => {
+  // Here, we test if the field is empty (remember, the field is not required)
+  // If it is not, we check if its content is a well-formed email address.
+  const isValid = email.value.length === 0 || emailRegExp.test(email.value);
+  email.className = isValid ? "valid" : "invalid";
+});
+
+// This defines what happens when the user types in the field
+email.addEventListener("input", () => {
+  const isValid = email.value.length === 0 || emailRegExp.test(email.value);
+  if (isValid) {
+    email.className = "valid";
+    error.textContent = "";
+    error.className = "error";
+  } else {
+    email.className = "invalid";
+  }
+});
+
+// This defines what happens when the user tries to submit the data
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const isValid = email.value.length === 0 || emailRegExp.test(email.value);
+  if (!isValid) {
+    email.className = "invalid";
+    error.textContent = "I expect an email, darling!";
+    error.className = "error active";
+  } else {
+    email.className = "valid";
+    error.textContent = "";
+    error.className = "error";
+  }
+});
+
+As you can see, it's not that hard to build a validation system on your own. The difficult part is to make it generic enough to use both cross-platform and on any form you might create. There are many libraries available to perform form validation, such as Validate.js.
+
+Test your skills!
+You've reached the end of this article, but can you remember the most important information? You can find some further tests to verify that you've retained this information before you move on — see Test your skills: Form validation.
 */
 
 
